@@ -43,7 +43,7 @@ that model on [GitHub](https://github.com/tensorflow/models/blob/477ed41e7e4e8a8
 After extracting the model, the first step in our program is to load the frozen graph so that
 we can use it to identify our image.
 
-```
+```Go
 	// Load a frozen graph to use for queries
 	model, err := ioutil.ReadFile("ssd_mobilenet_v1_coco_11_06_2017/frozen_inference_graph.pb")
 	if err != nil {
@@ -99,7 +99,7 @@ The next thing we need to do is load the image provided as a command-line argume
 
 So, after loading the JPG file, what we can do is construct a TensorFlow graph to decode this and output a Tensor to feed into the detection graph. Cool! Remember that technically speaking, TensorFlow is a general purpose computation graph library, and so there is actually a pretty wide-array of functionality that it can perform and in the case where we are trying to transform data to use with TensorFlow, it sort of makes sense to use it to help us do that.
 
-```
+```Go
 func decodeJpegGraph() (graph *tf.Graph, input, output tf.Output, err error) {
 	s := op.NewScope()
 	input = op.Placeholder(s, tf.String)
@@ -119,7 +119,7 @@ We're returning the input and output nodes of this graph as return values in thi
 
 We've now got our image transformed into a tensor, and we've identified all of our input and output nodes on the COCO graph. Now, if we execute that graph in a session, we'll get back a list of probabilities of objects detected in the image:
 
-```
+```Go
 	output, err := session.Run(
 		map[tf.Output]*tf.Tensor{
 			inputop.Output(0): tensor,
