@@ -151,7 +151,7 @@ The labels found in the TensorFlow repo actually seem to be out-of-date with the
 
 With labels loaded into a simple array, and armed with the tools in Go's standard library for image processing we can fairly easily iterate through the results and output an image with each object identified. We'll use the standard beach and kite image that Google used in its example:
 
-[!IMG_WHATEVER.JPG]
+![COCO Graph Annotated Output](output.jpg)
 
 ### Wrap-up
 
