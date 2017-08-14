@@ -1,0 +1,35 @@
+{
+    "memo": "09189c77c0b94f80e852159013a26ba56663c885727f667f98a917d70908b208",
+    "projects": [
+        {
+            "name": "github.com/tensorflow/tensorflow",
+            "branch": "master",
+            "revision": "679bb02274de245c3ce00d2229081010c656dc3c",
+            "packages": [
+                "tensorflow/go",
+                "tensorflow/go/op"
+            ]
+        },
+        {
+            "name": "golang.org/x/image",
+            "branch": "master",
+            "revision": "3210c0296b49a552ad9668ede9c61008df821b94",
+            "packages": [
+                "colornames",
+                "font",
+                "font/basicfont",
+                "font/plan9font",
+                "math/fixed"
+            ]
+        },
+        {
+            "name": "golang.org/x/net",
+            "branch": "master",
+            "revision": "1c05540f6879653db88113bc4a2b70aec4bd491f",
+            "packages": [
+                "html",
+                "html/atom"
+            ]
+        }
+    ]
+}

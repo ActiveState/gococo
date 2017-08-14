@@ -1,0 +1,10 @@
+{
+    "dependencies": {
+        "github.com/tensorflow/tensorflow": {
+            "branch": "master"
+        },
+        "golang.org/x/image": {
+            "branch": "master"
+        }
+    }
+}
