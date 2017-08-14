@@ -11,7 +11,7 @@ Go CLI for using COCO object recognition models.
 
 ## Usage
 
-`gococo <model folder> <input.jpg> [<output.jpg>] [-l<labels.txt>]`
+`gococo -dir=<model folder> -jpg=<input.jpg> [-out=<output.jpg>] [-labels=<labels.txt>]`
 
 ## Using Pre-Trained Models with TensorFlow in Go
 
@@ -45,7 +45,8 @@ we can use it to identify our image.
 
 ```Go
 	// Load a frozen graph to use for queries
-	model, err := ioutil.ReadFile("ssd_mobilenet_v1_coco_11_06_2017/frozen_inference_graph.pb")
+	modelpath := filepath.Join(*modeldir, "frozen_inference_graph.pb")
+	model, err := ioutil.ReadFile(modelpath)
 	if err != nil {
 		log.Fatal(err)
 	}
