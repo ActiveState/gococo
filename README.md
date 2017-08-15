@@ -137,6 +137,8 @@ The labels found in the TensorFlow repo actually seem to be out-of-date with the
 
 With labels loaded into a simple array, and armed with the tools in Go's standard library for image processing we can fairly easily iterate through the results and output an image with each object identified. We'll use the standard beach and kite image that Google used in its example:
 
+![Output image with annotated detected objects](output.jpg)
+
 ### Wrap-up
 
 And that's it! We've now got a small Go program that can take any image and identify it using the popular COCO TensorFlow models supplied by Google. I have posted all of the code for this program, including all of the snippets from this post on GitHub in the [gococo](https://github.com/ActiveState/gococo) repo.
