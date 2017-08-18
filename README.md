@@ -17,7 +17,7 @@ Go CLI for using COCO object recognition models.
 
 One of the challenges with machine learning is figuring out how to deploy trained models into production environments. After training your model, you can 'freeze' the weights in place and export it to be used in a production environment, potentially deployed to any number of server instances depending on your application.
 
-For many common use cases, we're beginning to see organizations sharing their trained models in ready-to-use forms - and there are already a number of the most common models available for use in the TensorFlow [model zoo](https://github.com/tensorflow/models/blob/477ed41e7e4e8a8443bc633846eb01e2182dc68a/object_detection/g3doc/detection_model_zoo.md).
+For many common use cases, we're beginning to see organizations sharing their trained models in ready-to-use forms - and there are already a number of the most common models available for use in the TensorFlow [model repo](https://github.com/tensorflow/models).
 
 For many building large scale web services, Go has become a language of choice. Go also has a growing data science community, but some of the tools are still missing documentation or features when compared to other languages like Python.
 
