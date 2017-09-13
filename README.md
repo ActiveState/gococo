@@ -3,6 +3,8 @@ Go CLI for using COCO object recognition models.
 
 ## Installing
 
+Before you begin, you'll of course need the Go programming language installed. You can of course download [ActiveGo](https://www.activestate.com/activego/downloads) for your preferred platform.
+
 1. Clone this repo.
 2. Run `dep ensure`
 3. Build the application with `go build`.
