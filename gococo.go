@@ -184,6 +184,7 @@ func main() {
 	// Parse flags
 	modeldir := flag.String("dir", "", "Directory containing COCO trained model files. Assumes model file is called frozen_inference_graph.pb")
 	jpgfile := flag.String("jpg", "", "Path or URL of a JPG image to use for input")
+	textonly := flag.Bool("textonly", false, "Output text labels instead of the image")
 	outjpg := flag.String("out", "output.jpg", "Path of output JPG for displaying labels. Default is output.jpg")
 	labelfile := flag.String("labels", "labels.txt", "Path to file of COCO labels, one per line")
 	flag.Parse()
@@ -267,23 +268,30 @@ func main() {
 		y2 := float32(img.Bounds().Max.Y) * boxes[curObj][2]
 
 		Rect(img, int(x1), int(y1), int(x2), int(y2), 4, colornames.Map[colornames.Names[int(classes[curObj])]])
-		addLabel(img, int(x1), int(y1), int(classes[curObj]), getLabel(curObj, probabilities, classes))
+
+		labelString := getLabel(curObj, probabilities, classes)
+		if (*textonly) {
+			fmt.Println(labelString)
+		}
+		addLabel(img, int(x1), int(y1), int(classes[curObj]), labelString)
 
 		curObj++
 	}
 
 	// Output JPG file
-	outfile, err := os.Create(*outjpg)
-	if err != nil {
-		log.Fatal(err)
-	}
+	if (!*textonly) {
+		outfile, err := os.Create(*outjpg)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	var opt jpeg.Options
+		var opt jpeg.Options
 
-	opt.Quality = 80
+		opt.Quality = 80
 
-	err = jpeg.Encode(outfile, img, &opt)
-	if err != nil {
-		log.Fatal(err)
+		err = jpeg.Encode(outfile, img, &opt)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
