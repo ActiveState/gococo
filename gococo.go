@@ -35,8 +35,10 @@ import (
 	"image/jpeg"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/image/colornames"
 
@@ -78,8 +80,20 @@ func Rect(img *image.RGBA, x1, y1, x2, y2, width int, col color.Color) {
 }
 
 // TENSOR UTILITY FUNCTIONS
-func makeTensorFromImage(filename string) (*tf.Tensor, image.Image, error) {
-	b, err := ioutil.ReadFile(filename)
+func makeTensorFromImage(filenameOrUrl string) (*tf.Tensor, image.Image, error) {
+	var b []byte
+	var err error
+	if (strings.Index(filenameOrUrl, "http") == 0) {
+		resp, err := http.Get(filenameOrUrl)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer resp.Body.Close()
+		b, err = ioutil.ReadAll(resp.Body)
+	} else {
+		b, err = ioutil.ReadFile(filenameOrUrl)
+	}
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -169,7 +183,7 @@ func addLabel(img *image.RGBA, x, y, class int, label string) {
 func main() {
 	// Parse flags
 	modeldir := flag.String("dir", "", "Directory containing COCO trained model files. Assumes model file is called frozen_inference_graph.pb")
-	jpgfile := flag.String("jpg", "", "Path of a JPG image to use for input")
+	jpgfile := flag.String("jpg", "", "Path or URL of a JPG image to use for input")
 	outjpg := flag.String("out", "output.jpg", "Path of output JPG for displaying labels. Default is output.jpg")
 	labelfile := flag.String("labels", "labels.txt", "Path to file of COCO labels, one per line")
 	flag.Parse()

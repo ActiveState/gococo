@@ -13,7 +13,7 @@ Before you begin, you'll of course need the Go programming language installed. Y
 
 ## Usage
 
-`gococo -dir=<model folder> -jpg=<input.jpg> [-out=<output.jpg>] [-labels=<labels.txt>]`
+`gococo -dir=<model folder> -jpg=<input-or-url.jpg> [-out=<output.jpg>] [-labels=<labels.txt>]`
 
 ## Using Pre-Trained Models with TensorFlow in Go
 
@@ -65,7 +65,7 @@ Unfortunately none of these questions have easy or well-documented answers!
 
 ### Step 1: Identify the input and output nodes of the graph
 
-For my [GopherCon demo](https://www.youtube.com/watch?v=oiorteQg9n0), I joked that I looked through the protocol buffer directly to find the names of the TensorFlow nodes for my model, and that if you were smart, you might print out the names from Python before you exported it, or dump them to a file on disk. 
+For my [GopherCon demo](https://www.youtube.com/watch?v=oiorteQg9n0), I joked that I looked through the protocol buffer directly to find the names of the TensorFlow nodes for my model, and that if you were smart, you might print out the names from Python before you exported it, or dump them to a file on disk.
 
 Shockingly, this is still one possibly effective strategy here. Combined with some Googling around the subject, digging through source code, you will find that the nodes for this model are as follows:
 
@@ -75,7 +75,7 @@ Shockingly, this is still one possibly effective strategy here. Combined with so
 | detection_boxes   | Output       | [?][4]    | Array of boxes for each detected object in the format [yMin, xMin, yMax, xMax]                           |
 | detection_scores  | Output       | [?]       | Array of probability scores for each detected object between 0..1                                        |
 | detection_classes | Output       | [?]       | Array of object class indices for each object detected based on COCO objects                             |
-| num_detections    | Output       | [1]       | Number of detections                                                                                     | 
+| num_detections    | Output       | [1]       | Number of detections                                                                                     |
 
 I would suggest that it would be best practice when publishing models to include this information as part of the documentation. Once you get the names of the nodes associated with the input/output, you can use the `Shape` method to display the shape of these inputs. In our case the input shape is similar to the one used in the Inception example referred to earlier.
 
@@ -131,7 +131,7 @@ There are a couple of notes to keep in mind when parsing the results:
 
 ### Step 4: Visualizing the output
 
-Printing out a list of probabilities, class indices and box dimensions isn't really that interesting so we'll also extend our little CLI to output a version of the image with the results of the model rendered into it. Like many of the existing examples, we'll draw bounding boxes and label them with the confidence percentage. 
+Printing out a list of probabilities, class indices and box dimensions isn't really that interesting so we'll also extend our little CLI to output a version of the image with the results of the model rendered into it. Like many of the existing examples, we'll draw bounding boxes and label them with the confidence percentage.
 
 We're just going to use the built-in `image` package to do some basic rendering, as well as the built-in font for rendering the labels.
 
