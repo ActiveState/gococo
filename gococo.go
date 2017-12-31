@@ -39,8 +39,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"strconv"
+	"strings"
 
 	"golang.org/x/image/colornames"
 
@@ -85,7 +85,7 @@ func Rect(img *image.RGBA, x1, y1, x2, y2, width int, col color.Color) {
 func makeTensorFromImage(filenameOrUrl string) (tensorImage, error) {
 	var b []byte
 	var err error
-	if (strings.Index(filenameOrUrl, "http") == 0) {
+	if strings.Index(filenameOrUrl, "http") == 0 {
 		resp, err := http.Get(filenameOrUrl)
 		if err != nil {
 			return tensorImage{}, err
@@ -185,8 +185,8 @@ func addLabel(img *image.RGBA, x, y, class int, label string) {
 
 type tensorImage struct {
 	Tensor *tf.Tensor
-	Image *image.Image
-	Input string
+	Image  *image.Image
+	Input  string
 }
 
 func predictImage(timg tensorImage, outputDir string, outputCount int, textOnly bool, graph *tf.Graph, session *tf.Session) (string, error) {
@@ -238,11 +238,11 @@ func predictImage(timg tensorImage, outputDir string, outputCount int, textOnly 
 		y2 := float32(img.Bounds().Max.Y) * boxes[curObj][2]
 
 		labelString := getLabel(curObj, probabilities, classes)
-		if (textOnly) {
-		  buffer.WriteString(labelString)
+		if textOnly {
+			buffer.WriteString(labelString)
 			buffer.WriteString("\n")
 		} else {
-		  Rect(img, int(x1), int(y1), int(x2), int(y2), 4, colornames.Map[colornames.Names[int(classes[curObj])]])
+			Rect(img, int(x1), int(y1), int(x2), int(y2), 4, colornames.Map[colornames.Names[int(classes[curObj])]])
 			addLabel(img, int(x1), int(y1), int(classes[curObj]), labelString)
 		}
 
@@ -250,7 +250,7 @@ func predictImage(timg tensorImage, outputDir string, outputCount int, textOnly 
 	}
 
 	// Output JPG file
-	if (!textOnly) {
+	if !textOnly {
 		outfile, err := os.Create(outputDir + "/output-" + strconv.Itoa(outputCount) + ".jpg")
 		if err != nil {
 			return "", err
@@ -267,7 +267,6 @@ func predictImage(timg tensorImage, outputDir string, outputCount int, textOnly 
 
 	return buffer.String(), nil
 }
-
 
 func main() {
 	results := map[string]string{}
@@ -314,7 +313,6 @@ func main() {
 
 	// load all images at once
 	tensorc, errc := make(chan tensorImage), make(chan error)
-
 	for _, jpgFile := range jpgFiles {
 		go func(jpf string) {
 			timg, err := makeTensorFromImage(jpf)
@@ -347,7 +345,6 @@ func main() {
 		results[timg.Input] = prediction
 		i++
 	}
-
 
 	// print output in json
 	output, err := json.Marshal(results)
