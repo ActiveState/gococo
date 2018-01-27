@@ -27,6 +27,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
@@ -35,8 +36,11 @@ import (
 	"image/jpeg"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"golang.org/x/image/colornames"
 
@@ -78,43 +82,56 @@ func Rect(img *image.RGBA, x1, y1, x2, y2, width int, col color.Color) {
 }
 
 // TENSOR UTILITY FUNCTIONS
-func makeTensorFromImage(filename string) (*tf.Tensor, image.Image, error) {
-	b, err := ioutil.ReadFile(filename)
+func makeTensorFromImage(filenameOrUrl string) (tensorImage, error) {
+	var b []byte
+	var err error
+	if strings.Index(filenameOrUrl, "http") == 0 {
+		resp, err := http.Get(filenameOrUrl)
+		if err != nil {
+			return tensorImage{}, err
+		}
+		defer resp.Body.Close()
+		b, err = ioutil.ReadAll(resp.Body)
+	} else {
+		b, err = ioutil.ReadFile(filenameOrUrl)
+	}
+
 	if err != nil {
-		return nil, nil, err
+		return tensorImage{}, err
 	}
 
 	r := bytes.NewReader(b)
 	img, _, err := image.Decode(r)
-
 	if err != nil {
-		return nil, nil, err
+		return tensorImage{}, err
 	}
 
 	// DecodeJpeg uses a scalar String-valued tensor as input.
 	tensor, err := tf.NewTensor(string(b))
 	if err != nil {
-		return nil, nil, err
+		return tensorImage{}, err
 	}
 	// Creates a tensorflow graph to decode the jpeg image
 	graph, input, output, err := decodeJpegGraph()
 	if err != nil {
-		return nil, nil, err
+		return tensorImage{}, err
 	}
 	// Execute that graph to decode this one image
 	session, err := tf.NewSession(graph, nil)
 	if err != nil {
-		return nil, nil, err
+		return tensorImage{}, err
 	}
 	defer session.Close()
 	normalized, err := session.Run(
 		map[tf.Output]*tf.Tensor{input: tensor},
 		[]tf.Output{output},
-		nil)
+		nil,
+	)
 	if err != nil {
-		return nil, nil, err
+		return tensorImage{}, err
 	}
-	return normalized[0], img, nil
+
+	return tensorImage{Tensor: normalized[0], Image: &img, Input: filenameOrUrl}, nil
 }
 
 func decodeJpegGraph() (graph *tf.Graph, input, output tf.Output, err error) {
@@ -166,15 +183,108 @@ func addLabel(img *image.RGBA, x, y, class int, label string) {
 	d.DrawString(label)
 }
 
+type tensorImage struct {
+	Tensor *tf.Tensor
+	Image  *image.Image
+	Input  string
+}
+
+func predictImage(timg tensorImage, outputDir string, outputCount int, textOnly bool, graph *tf.Graph, session *tf.Session) (string, error) {
+	var buffer bytes.Buffer
+
+	// Transform the decoded YCbCr JPG image into RGBA
+	b := (*timg.Image).Bounds()
+	img := image.NewRGBA(b)
+	draw.Draw(img, b, (*timg.Image), b.Min, draw.Src)
+
+	// Get all the input and output operations
+	inputop := graph.Operation("image_tensor")
+	// Output ops
+	o1 := graph.Operation("detection_boxes")
+	o2 := graph.Operation("detection_scores")
+	o3 := graph.Operation("detection_classes")
+	o4 := graph.Operation("num_detections")
+
+	// Execute COCO Graph
+	output, err := session.Run(
+		map[tf.Output]*tf.Tensor{
+			inputop.Output(0): timg.Tensor,
+		},
+		[]tf.Output{
+			o1.Output(0),
+			o2.Output(0),
+			o3.Output(0),
+			o4.Output(0),
+		},
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	// Outputs
+	probabilities := output[1].Value().([][]float32)[0]
+	classes := output[2].Value().([][]float32)[0]
+	boxes := output[0].Value().([][][]float32)[0]
+
+	// Draw a box around the objects
+	curObj := 0
+
+	// 0.4 is an arbitrary threshold, below this the results get a bit random
+	for probabilities[curObj] > 0.4 {
+		x1 := float32(img.Bounds().Max.X) * boxes[curObj][1]
+		x2 := float32(img.Bounds().Max.X) * boxes[curObj][3]
+		y1 := float32(img.Bounds().Max.Y) * boxes[curObj][0]
+		y2 := float32(img.Bounds().Max.Y) * boxes[curObj][2]
+
+		labelString := getLabel(curObj, probabilities, classes)
+		if textOnly {
+			buffer.WriteString(labelString)
+			buffer.WriteString("\n")
+		} else {
+			Rect(img, int(x1), int(y1), int(x2), int(y2), 4, colornames.Map[colornames.Names[int(classes[curObj])]])
+			addLabel(img, int(x1), int(y1), int(classes[curObj]), labelString)
+		}
+
+		curObj++
+	}
+
+	// Output JPG file
+	if !textOnly {
+		outfile, err := os.Create(outputDir + "/output-" + strconv.Itoa(outputCount) + ".jpg")
+		if err != nil {
+			return "", err
+		}
+
+		var opt jpeg.Options
+		opt.Quality = 80
+
+		err = jpeg.Encode(outfile, img, &opt)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return buffer.String(), nil
+}
+
 func main() {
+	results := map[string]string{}
+
 	// Parse flags
 	modeldir := flag.String("dir", "", "Directory containing COCO trained model files. Assumes model file is called frozen_inference_graph.pb")
-	jpgfile := flag.String("jpg", "", "Path of a JPG image to use for input")
-	outjpg := flag.String("out", "output.jpg", "Path of output JPG for displaying labels. Default is output.jpg")
+	textonly := flag.Bool("textonly", false, "Output text labels instead of the image")
+	outdir := flag.String("outdir", "~", "Path of output directory to put JPG in for displaying labels.")
 	labelfile := flag.String("labels", "labels.txt", "Path to file of COCO labels, one per line")
 	flag.Parse()
-	if *modeldir == "" || *jpgfile == "" {
+	if *modeldir == "" {
 		flag.Usage()
+		return
+	}
+
+	jpgFiles := flag.Args()
+	if len(jpgFiles) < 1 {
+		fmt.Println("Please specify one or more jpg urls/files to use as inputs")
 		return
 	}
 
@@ -182,7 +292,6 @@ func main() {
 	loadLabels(*labelfile)
 
 	// Load a frozen graph to use for queries
-
 	modelpath := filepath.Join(*modeldir, "frozen_inference_graph.pb")
 	model, err := ioutil.ReadFile(modelpath)
 	if err != nil {
@@ -202,74 +311,45 @@ func main() {
 	}
 	defer session.Close()
 
-	// DecodeJpeg uses a scalar String-valued tensor as input.
-	tensor, i, err := makeTensorFromImage(*jpgfile)
+	// load all images at once
+	tensorc, errc := make(chan tensorImage), make(chan error)
+	for _, jpgFile := range jpgFiles {
+		go func(jpf string) {
+			timg, err := makeTensorFromImage(jpf)
+			if err != nil {
+				errc <- err
+				return
+			}
+			tensorc <- timg
+		}(jpgFile)
+	}
+
+	tensorImgs := map[string]tensorImage{}
+
+	for i := 0; i < len(jpgFiles); i++ {
+		select {
+		case timg := <-tensorc:
+			tensorImgs[timg.Input] = timg
+		case err := <-errc:
+			fmt.Errorf("ERROR %v\n", err)
+		}
+	}
+
+	// run sessions in serial
+	i := 0
+	for _, timg := range tensorImgs {
+		prediction, err := predictImage(timg, *outdir, i, *textonly, graph, session)
+		if err != nil {
+			log.Fatal(err)
+		}
+		results[timg.Input] = prediction
+		i++
+	}
+
+	// print output in json
+	output, err := json.Marshal(results)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Transform the decoded YCbCr JPG image into RGBA
-	b := i.Bounds()
-	img := image.NewRGBA(b)
-	draw.Draw(img, b, i, b.Min, draw.Src)
-
-	// Get all the input and output operations
-	inputop := graph.Operation("image_tensor")
-	// Output ops
-	o1 := graph.Operation("detection_boxes")
-	o2 := graph.Operation("detection_scores")
-	o3 := graph.Operation("detection_classes")
-	o4 := graph.Operation("num_detections")
-
-	// Execute COCO Graph
-	output, err := session.Run(
-		map[tf.Output]*tf.Tensor{
-			inputop.Output(0): tensor,
-		},
-		[]tf.Output{
-			o1.Output(0),
-			o2.Output(0),
-			o3.Output(0),
-			o4.Output(0),
-		},
-		nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Outputs
-	probabilities := output[1].Value().([][]float32)[0]
-	classes := output[2].Value().([][]float32)[0]
-	boxes := output[0].Value().([][][]float32)[0]
-
-	// Draw a box around the objects
-	curObj := 0
-
-	// 0.4 is an arbitrary threshold, below this the results get a bit random
-	for probabilities[curObj] > 0.4 {
-		x1 := float32(img.Bounds().Max.X) * boxes[curObj][1]
-		x2 := float32(img.Bounds().Max.X) * boxes[curObj][3]
-		y1 := float32(img.Bounds().Max.Y) * boxes[curObj][0]
-		y2 := float32(img.Bounds().Max.Y) * boxes[curObj][2]
-
-		Rect(img, int(x1), int(y1), int(x2), int(y2), 4, colornames.Map[colornames.Names[int(classes[curObj])]])
-		addLabel(img, int(x1), int(y1), int(classes[curObj]), getLabel(curObj, probabilities, classes))
-
-		curObj++
-	}
-
-	// Output JPG file
-	outfile, err := os.Create(*outjpg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var opt jpeg.Options
-
-	opt.Quality = 80
-
-	err = jpeg.Encode(outfile, img, &opt)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fmt.Println(string(output))
 }
